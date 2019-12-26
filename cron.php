@@ -15,7 +15,7 @@ class Cron extends Server
     protected $port     = '5100';
     protected $context  = [];
 
-	// workerman配置参数
+    // workerman配置参数
     protected $option   = ['name'=>'cron', 'count'=>8];
 
     // 自定义配置
