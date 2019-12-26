@@ -47,7 +47,7 @@ class Cron extends Server
         // 添加定时器 - consumer
         Timer::add(1, function() {
             // 获取队列
-            while($name = $this->redis->lpop('cron:queue')) {
+            while ($name = $this->redis->lpop('cron:queue')) {
                 // 获取任务
                 while ($job = $this->redis->lpop('cron:queue:'. $name)) {
                     $job = json_decode($job, true);
