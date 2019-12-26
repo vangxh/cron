@@ -22,11 +22,11 @@ class Cron extends Server
     protected $redis;   // redis驱动
     protected $http;    // 异步http组件
 
-	protected function init()
-	{
-		Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
+    protected function init()
+    {
+	Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
         Worker::$logFile = app()->getRuntimePath() .'log/worker_'. $this->port .'.log';
-	}
+    }
 
     public function onWorkerStart($worker)
     {
