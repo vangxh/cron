@@ -46,45 +46,38 @@ class Cron extends Server
         });
         // 添加定时器 - consumer
         Timer::add(1, function() {
-            // 任务队列处理
-            while(1) {
-                if ($name = $this->redis->lpop('cron:queue')) {
-                    while (1) {
-                        if ($job = $this->redis->lpop('cron:queue:'. $name)) {
-                            $job = json_decode($job, true);
-                            if (isset($job['name'])) {
-                                try {
-                                    // 远程调用
-                                    if (strpos($job['name'], 'http') === 0) {
-                                        // 异步处理
-                                        $this->http->post($job['name'], $job['args'], function($res) use ($name, $job) {
-                                            $res->getBody() == 'success' || $this->retry($name, $job);
-                                        }, function($e) use ($name, $job) {
-                                            $this->retry($name, $job, $e->getMessage());
-                                        });
-                                    } else {
-                                        // 回调处理
-                                        $callback = explode('/', $job['name']);
-                                        strpos($callback[0], '\\') === 0 || $callback[0] = __NAMESPACE__ .'\\job\\'. $callback[0];
-                                        // 去掉名称中的TAG标记
-                                        $callback[1] = isset($callback[1]) ? preg_replace('/:\w+/', '', $callback[1]) : 'perform';
-                                        // 事例化
-                                        $callback[0] = new $callback[0];
-                                        // 尝试执行
-                                        if (is_callable($callback)) {
-                                            call_user_func_array([$callback[0], $callback[1]], [$job['args']]) === true || $this->retry($name, $job);
-                                        }
-                                    }
-                                } catch (\Exception $e) {
+            // 获取队列
+            while($name = $this->redis->lpop('cron:queue')) {
+                // 获取任务
+                while ($job = $this->redis->lpop('cron:queue:'. $name)) {
+                    $job = json_decode($job, true);
+                    if (isset($job['name'])) {
+                        try {
+                            // 远程调用
+                            if (strpos($job['name'], 'http') === 0) {
+                                // 异步处理
+                                $this->http->post($job['name'], $job['args'], function($res) use ($name, $job) {
+                                    $res->getBody() == 'success' || $this->retry($name, $job);
+                                }, function($e) use ($name, $job) {
                                     $this->retry($name, $job, $e->getMessage());
+                                });
+                            } else {
+                                // 回调处理
+                                $callback = explode('/', $job['name']);
+                                strpos($callback[0], '\\') === 0 || $callback[0] = __NAMESPACE__ .'\\job\\'. $callback[0];
+                                // 去掉名称中的TAG标记
+                                $callback[1] = isset($callback[1]) ? preg_replace('/:\w+/', '', $callback[1]) : 'perform';
+                                // 事例化
+                                $callback[0] = new $callback[0];
+                                // 尝试执行
+                                if (is_callable($callback)) {
+                                    call_user_func_array([$callback[0], $callback[1]], [$job['args']]) === true || $this->retry($name, $job);
                                 }
                             }
-                        } else {
-                            break;
+                        } catch (\Exception $e) {
+                            $this->retry($name, $job, $e->getMessage());
                         }
                     }
-                } else {
-                    break;
                 }
             }
         });
