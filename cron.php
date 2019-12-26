@@ -15,18 +15,18 @@ class Cron extends Server
     protected $port     = '5100';
     protected $context  = [];
 
-	// workerman配置参数
+    // workerman配置参数
     protected $option   = ['name'=>'cron', 'count'=>8];
 
     // 自定义配置
     protected $redis;   // redis驱动
     protected $http;    // 异步http组件
 
-	protected function init()
-	{
-		Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
+    protected function init()
+    {
+        Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
         Worker::$logFile = app()->getRuntimePath() .'log/worker_'. $this->port .'.log';
-	}
+    }
 
     public function onWorkerStart($worker)
     {
@@ -178,6 +178,7 @@ class Cron extends Server
             }
         }
     }
+
     // 清除计划
     protected function clear($name, $time)
     {
