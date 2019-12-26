@@ -15,18 +15,18 @@ class Cron extends Server
     protected $port     = '5100';
     protected $context  = [];
 
-    // workerman配置参数
+	// workerman配置参数
     protected $option   = ['name'=>'cron', 'count'=>8];
 
     // 自定义配置
     protected $redis;   // redis驱动
     protected $http;    // 异步http组件
 
-    protected function init()
-    {
-        Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
+	protected function init()
+	{
+		Worker::$pidFile = app()->getRuntimePath() .'pid/worker_'. $this->port .'.pid';
         Worker::$logFile = app()->getRuntimePath() .'log/worker_'. $this->port .'.log';
-    }
+	}
 
     public function onWorkerStart($worker)
     {
@@ -48,9 +48,9 @@ class Cron extends Server
         Timer::add(1, function() {
             // 任务队列处理
             while(1) {
-                if ($name = $this->redis->lpop('teu:queue')) {
+                if ($name = $this->redis->lpop('cron:queue')) {
                     while (1) {
-                        if ($job = $this->redis->lpop('teu:queue:'. $name)) {
+                        if ($job = $this->redis->lpop('cron:queue:'. $name)) {
                             $job = json_decode($job, true);
                             if (isset($job['name'])) {
                                 try {
@@ -125,7 +125,7 @@ class Cron extends Server
     // 下一个延迟
     protected function nextDelay($time)
     {
-        $time = $this->redis->zrangebyscore('teu:delay', '-inf', $time, ['limit'=>[0, 1]]);
+        $time = $this->redis->zrangebyscore('cron:delay', '-inf', $time, ['limit'=>[0, 1]]);
         if (!empty($time)) {
             return $time[0];
         }
@@ -135,12 +135,12 @@ class Cron extends Server
     // 下一个任务
     protected function nextJob($time)
     {
-        $key = 'teu:delay:'. $time;
+        $key = 'cron:delay:'. $time;
         $job = json_decode($this->redis->lpop($key), true);
         // 删除计划
         if ($this->redis->llen($key) == 0) {
             $this->redis->del($key);
-            $this->redis->zrem('teu:delay', $time);
+            $this->redis->zrem('cron:delay', $time);
         }
         return $job;
     }
@@ -159,12 +159,12 @@ class Cron extends Server
                     'queue' => $queue,
                     'count' => $count   // 重试次数
                 ];
-                $this->redis->rpush('teu:delay:'. $time, json_encode($data, 320));
-                $this->redis->zadd('teu:delay', $time, $time);
-                $this->redis->sadd('teu:delay:'. md5($name), $time);
+                $this->redis->rpush('cron:delay:'. $time, json_encode($data, 320));
+                $this->redis->zadd('cron:delay', $time, $time);
+                $this->redis->sadd('cron:delay:'. md5($name), $time);
             } else {
                 // 清除标记
-                $delay && $this->redis->srem('teu:delay:'. md5($name), $time);
+                $delay && $this->redis->srem('cron:delay:'. md5($name), $time);
                 // 写入任务队列数据
                 $data = [
                     'name'  => $name,
@@ -172,9 +172,9 @@ class Cron extends Server
                     'count' => $count   // 重试次数
                 ];
                 // 队列名插入队列尾部
-                $this->redis->rpush('teu:queue', $queue);
+                $this->redis->rpush('cron:queue', $queue);
                 // 任务插入指定队列尾部
-                $this->redis->rpush('teu:queue:'. $queue, json_encode($data, 320));
+                $this->redis->rpush('cron:queue:'. $queue, json_encode($data, 320));
             }
         }
     }
@@ -184,16 +184,16 @@ class Cron extends Server
     {
         $name = md5($name);
         if ($time > 0) {
-            $this->redis->ltrim('teu:delay:'. $time, 1, 0);
-            $this->redis->zrem('teu:delay', $time);
-            $this->redis->srem('teu:delay:'. $name, $time);
+            $this->redis->ltrim('cron:delay:'. $time, 1, 0);
+            $this->redis->zrem('cron:delay', $time);
+            $this->redis->srem('cron:delay:'. $name, $time);
         } else {
-            $delay = $this->redis->smembers('teu:delay:'. $name);
+            $delay = $this->redis->smembers('cron:delay:'. $name);
             foreach ($delay as $time) {
-                $this->redis->ltrim('teu:delay:'. $time, 1, 0);
-                $this->redis->zrem('teu:delay', $time);
+                $this->redis->ltrim('cron:delay:'. $time, 1, 0);
+                $this->redis->zrem('cron:delay', $time);
             }
-            $this->redis->del('teu:delay:'. $name);
+            $this->redis->del('cron:delay:'. $name);
         }
     }
 }
